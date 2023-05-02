@@ -1,8 +1,6 @@
 #include <iostream>
 #include <array>
-#include "lib.hpp"
-
-using namespace std::literals::chrono_literals;
+#include "lib/lib.hpp"
 
 int main()
 {
@@ -24,6 +22,7 @@ int main()
         }
         const auto parsed_data = parser.parse(maybe_data.value());
         std::cout << parsed_data << std::flush;
+        using namespace std::literals::chrono_literals;
         std::this_thread::sleep_for(100ms);
     }
 }

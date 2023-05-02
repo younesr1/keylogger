@@ -1,3 +1,4 @@
+#pragma once
 #include <sys/types.h>
 #include <numeric>
 #include <algorithm>
@@ -25,15 +26,16 @@ class KeyboardFile {
 
     public:
     constexpr KeyboardFile() noexcept = delete;
-    KeyboardFile::~KeyboardFile() noexcept {
+    ~KeyboardFile() noexcept {
         auto _ = close(fd_);
+        (void)_;
     }
     constexpr KeyboardFile(const KeyboardFile&) noexcept = delete;
-    constexpr KeyboardFile &operator=(const KeyboardFile&) noexcept = delete;
+    constexpr KeyboardFile &operator=(const KeyboardFile&) const noexcept = delete;
     constexpr KeyboardFile(KeyboardFile &&other) noexcept : fd_(other.fd_) {
         other.fd_ = -1;
     }
-    constexpr KeyboardFile &operator=(KeyboardFile &&other) noexcept {
+    KeyboardFile &operator=(KeyboardFile &&other) noexcept {
         fd_ = other.fd_;
         other.fd_ = -1;
         return *this;
@@ -160,4 +162,6 @@ const std::unordered_map<int64_t,std::string> Parser::char_map = {
         {KEY_ENTER, "\n"},
         {KEY_BACKSLASH, "\\"},
         {KEY_SPACE, " "},
+        {KEY_MINUS, "-"},
+        {KEY_EQUAL, "="},
         {KEY_TAB, "\t"}};
