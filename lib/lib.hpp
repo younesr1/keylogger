@@ -5,6 +5,7 @@
 #include <cassert>
 #include <linux/input.h>
 #include <string.h>
+#include <string>
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -74,7 +75,8 @@ class KeyboardFile {
 class Parser {
     private:
     // TODO: make map constexpr using https://github.com/serge-sans-paille/frozen
-    static const std::unordered_map<int64_t,std::string> char_map;
+    static const std::unordered_map<int64_t,char> char_map;
+    mutable bool capitalized_ = false;
     public:
     constexpr Parser() noexcept = default;
     constexpr ~Parser() noexcept = default;
@@ -89,79 +91,94 @@ class Parser {
         constexpr auto is_keyboard_event = [](const auto &event) constexpr {
             return event.type == EV_KEY;
         };
-        constexpr auto is_pressed_down = [](const auto &event) constexpr {
-            return event.value != 0; // 0 means released
+        constexpr auto filter = [](const auto &event) constexpr {
+            const bool is_pressed_down = event.value == 1; // pressed down
+            const bool shift = (event.code == KEY_RIGHTSHIFT || event.code == KEY_LEFTSHIFT); // keep shift press down and up
+            return is_pressed_down || shift;
         };
-        constexpr auto func = [](const auto &event) constexpr {
-            return char_map.contains(event.code) ? char_map.at(event.code) : "?";
+        const auto tf = [this](const auto &event) {
+            constexpr auto BLANK = '\0';
+            if (event.code == KEY_RIGHTSHIFT || event.code == KEY_LEFTSHIFT) {
+                this->capitalized_ = event.value != 0; //  not released
+                return BLANK;
+            } else if (event.code == KEY_CAPSLOCK) {
+                this->capitalized_ = !capitalized_;
+                return BLANK;
+            } else {
+                auto ret = char_map.contains(event.code) ? char_map.at(event.code) : '?';
+                if (std::isalpha(ret) && this->capitalized_) {
+                    ret = std::toupper(ret);
+                }
+                return ret;
+            }
         };
-        auto transformed = std::forward<T>(data) | std::views::filter(is_keyboard_event) |std::views::filter(is_pressed_down) | std::ranges::views::transform(func);
+        auto transformed = std::forward<T>(data) | std::views::filter(is_keyboard_event) | std::views::filter(filter) | std::ranges::views::transform(tf);
         return std::accumulate(transformed.begin(),transformed.end(),std::string());
     }
 };
 
-const std::unordered_map<int64_t,std::string> Parser::char_map = { 
-        {KEY_1, "1"},
-        {KEY_2, "2"},
-        {KEY_3, "3"},
-        {KEY_4, "4"},
-        {KEY_5, "5"},
-        {KEY_6, "6"},
-        {KEY_7, "7"},
-        {KEY_8, "8"},
-        {KEY_9, "9"},
-        {KEY_0, "0"},
-        {KEY_Q, "q"},
-        {KEY_W, "w"},
-        {KEY_E, "e"},
-        {KEY_R, "r"},
-        {KEY_T, "t"},
-        {KEY_Y, "y"},
-        {KEY_U, "u"},
-        {KEY_I, "i"},
-        {KEY_O, "o"},
-        {KEY_P, "p"},
-        {KEY_A, "a"},
-        {KEY_S, "s"},
-        {KEY_D, "d"},
-        {KEY_F, "f"},
-        {KEY_G, "g"},
-        {KEY_H, "h"},
-        {KEY_J, "j"},
-        {KEY_K, "k"},
-        {KEY_L, "l"},
-        {KEY_Z, "z"},
-        {KEY_X, "x"},
-        {KEY_C, "c"},
-        {KEY_V, "v"},
-        {KEY_B, "b"},
-        {KEY_N, "n"},
-        {KEY_M, "m"},
-        {KEY_COMMA, ","},
-        {KEY_DOT, "."},
-        {KEY_SLASH, "/"},
-        {KEY_SEMICOLON, ";"},
-        {KEY_APOSTROPHE, "\'"},
-        {KEY_LEFTBRACE, "["},
-        {KEY_RIGHTBRACE, "]"},
-        {KEY_KP7,"7"},
-        {KEY_KP8, "8"},
-        {KEY_KP9, "9"},
-        {KEY_KPMINUS, "-"},
-        {KEY_KP4, "4"},
-        {KEY_KP5, "5"},
-        {KEY_KP6, "6"},
-        {KEY_KPPLUS, "+"},
-        {KEY_KP1, "1"},
-        {KEY_KP2, "2"},
-        {KEY_KP3, "3"},
-        {KEY_KP0, "0"},
-        {KEY_KPDOT, "."},
-        {KEY_LEFTBRACE, "{"},
-        {KEY_RIGHTBRACE, "}"},
-        {KEY_ENTER, "\n"},
-        {KEY_BACKSLASH, "\\"},
-        {KEY_SPACE, " "},
-        {KEY_MINUS, "-"},
-        {KEY_EQUAL, "="},
-        {KEY_TAB, "\t"}};
+const std::unordered_map<int64_t,char> Parser::char_map = {
+        {KEY_1, '1'},
+        {KEY_2, '2'},
+        {KEY_3, '3'},
+        {KEY_4, '4'},
+        {KEY_5, '5'},
+        {KEY_6, '6'},
+        {KEY_7, '7'},
+        {KEY_8, '8'},
+        {KEY_9, '9'},
+        {KEY_0, '0'},
+        {KEY_Q, 'q'},
+        {KEY_W, 'w'},
+        {KEY_E, 'e'},
+        {KEY_R, 'r'},
+        {KEY_T, 't'},
+        {KEY_Y, 'y'},
+        {KEY_U, 'u'},
+        {KEY_I, 'i'},
+        {KEY_O, 'o'},
+        {KEY_P, 'p'},
+        {KEY_A, 'a'},
+        {KEY_S, 's'},
+        {KEY_D, 'd'},
+        {KEY_F, 'f'},
+        {KEY_G, 'g'},
+        {KEY_H, 'h'},
+        {KEY_J, 'j'},
+        {KEY_K, 'k'},
+        {KEY_L, 'l'},
+        {KEY_Z, 'z'},
+        {KEY_X, 'x'},
+        {KEY_C, 'c'},
+        {KEY_V, 'v'},
+        {KEY_B, 'b'},
+        {KEY_N, 'n'},
+        {KEY_M, 'm'},
+        {KEY_COMMA, ','},
+        {KEY_DOT, '.'},
+        {KEY_SLASH, '/'},
+        {KEY_SEMICOLON, ';'},
+        {KEY_APOSTROPHE, '\''},
+        {KEY_LEFTBRACE, '['},
+        {KEY_RIGHTBRACE, ']'},
+        {KEY_KP7,'7'},
+        {KEY_KP8, '8'},
+        {KEY_KP9, '9'},
+        {KEY_KPMINUS, '-'},
+        {KEY_KP4, '4'},
+        {KEY_KP5, '5'},
+        {KEY_KP6, '6'},
+        {KEY_KPPLUS, '+'},
+        {KEY_KP1, '1'},
+        {KEY_KP2, '2'},
+        {KEY_KP3, '3'},
+        {KEY_KP0, '0'},
+        {KEY_KPDOT, '.'},
+        {KEY_LEFTBRACE, '{'},
+        {KEY_RIGHTBRACE, '}'},
+        {KEY_ENTER, '\n'},
+        {KEY_BACKSLASH, '\\'},
+        {KEY_SPACE, ' '},
+        {KEY_MINUS, '-'},
+        {KEY_EQUAL, '='},
+        {KEY_TAB, '\t'}};
